@@ -9,7 +9,11 @@ def check_dir( directory_path ):
         raise argparse.ArgumentTypeError(msg)
     return directory_path
 
+def get_local_repo_dir( args ):
+    return [ rdname for rdname in next(os.walk( args.d ))[1] if not rdname[0] == '.']
+
 def rename_repos( args ):
+    repos = get_local_repo_dir( args )
     for module in args.m:
         #print( '>' + module )
         for repo in repos:
@@ -37,10 +41,8 @@ parser.add_argument('-d', type=check_dir, help='directory where repos are checko
 args = parser.parse_args()
 print(args)
 
-repos = next(os.walk( args.d ))[1]
 rename_repos( args )
-                
-
+print( get_local_repo_dir( args ) )
 
 """
 update_repos()
