@@ -1,9 +1,31 @@
+"""
+Deployment steps
+
+- update repo folders
+- rename repo folders to today
+
+- if lib is there copy to library_folder
+- compile & install lib
+- relink to new lib folder
+
+- copy the modules to module_folder
+- compile all modules
+- stop modules
+- relink modules
+- start modules
+
+deploy -l libubac libkimeng -ld /path/to/libdir -md /path/to/moduledir -d /path/to/checkoutdir login trade reports 
+
+"""
+
 import os
 import re
-import git
+import sys
+import time
 import shutil
 import argparse
 import datetime
+import subprocess
 
 def check_dir( directory_path ):
     if( not os.path.isdir( directory_path ) ):
@@ -21,14 +43,17 @@ def process_repos( args ):
         for repo in repos:
             repo_bname = os.path.basename( repo )
             if re.search( r'\b' + module + r'\b', repo_bname ):
-                #print ( '>>' + repo )
+                print ( '>>' + repo )
                 update( repo );
                 rename( repo, repo_bname );
                 repos.remove( repo )
                 break
 
 def update( dirname ):
-    git.cmd.Git( dirname ).pull( 'origin', 'master' )
+    cmd = ['git', '-C', 'pull', 'origin', 'master']
+    cmd.insert( 2, dirname )
+    if subprocess.run( cmd ).returncode != 0:
+        sys.exit(1)
 
 def copy( args ):
     repos = get_local_repo_dir( args )
@@ -62,58 +87,64 @@ def rename( repo, repo_bname ):
     #print ( '>>>' + os.path.join(os.path.dirname(repo), new_name ) )
     os.rename( repo, os.path.join(os.path.dirname(repo), new_name ) );
 
+def compile_all( args ):
+    compile_lib( args.l )
+    compile_mod( args.m )
+
+# sequencial compilation
+def compile_lib( libs ):
+    if libs == None:
+        return
+
+    for lib in libs:
+        dirname = gCompDstDirDic[lib]
+        subprocess.run( ['make', '-C', dirname, 'clean'] )
+        subprocess.run( ['make', '-j2', '-C', dirname] )
+        subprocess.run( ['sudo', 'make', '-C', dirname, 'install'] )
+
+# parallel compilation
+def compile_mod( modules ):
+    processes=[]
+    for module in modules:
+        processes.append( subprocess.Popen( ['make', '-j2', '-C', gCompDstDirDic[module], 'clean', 'all'] ) )
+
+    for process in processes:
+        process.wait()
+
+def relink():
+    for comp, dirname in gCompDstDirDic.items():
+        subprocess.run( ['monit', 'stop', comp] )
+        time.sleep(1)
+        subprocess.run( ['unlink', comp], cwd=os.path.dirname(dirname) )
+        subprocess.run( ['ln', '-s', os.path.basename(dirname), comp], cwd=os.path.dirname(dirname) )
+        subprocess.run( ['monit', 'start', comp] )
+
+gCompDstDirDic={}
 lib_list = ['libubac', 'libkimeng']
 module_list = ['init', 'weblogin', 'login', 'market-data', 'market-movers', 'market-insight', 'portfolio', 'reports', 'trade', 'watchlist']
 
-parser = argparse.ArgumentParser(description='Auto deploy in Single Server Environment ( like UAT )', epilog='Happy deploying ;)')
+if __name__ == '__main__':
 
-parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0.0')
+    parser = argparse.ArgumentParser(description='Auto deploy in Single Server Environment ( like UAT )', epilog='Happy deploying ;)')
 
-parser.add_argument('-l', choices=lib_list, nargs='*', help='list of libraries to be deployed')
-parser.add_argument('-ld', type=check_dir, help='directory to which libraries to be copied', metavar='/path/to/lib_dir')
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0.0')
 
-parser.add_argument('m', nargs='*', choices=module_list, help='list of modules to be deployed')
-parser.add_argument('-md', type=check_dir, help='directory to which modules to be copied', required=True, metavar='/path/to/module_dir')
-parser.add_argument('-d', type=check_dir, help='directory where repos are checkout', required=True, metavar='/path/to/repo_dir')
+    parser.add_argument('-l', choices=lib_list, nargs='*', help='list of libraries to be deployed')
+    parser.add_argument('-ld', type=check_dir, help='directory to which libraries to be copied', metavar='/path/to/lib_dir')
 
-gCompDstDirDic={}
-args = parser.parse_args()
-print(args)
+    parser.add_argument('m', nargs='*', choices=module_list, help='list of modules to be deployed')
+    parser.add_argument('-md', type=check_dir, help='directory to which modules to be copied', required=True, metavar='/path/to/module_dir')
+    parser.add_argument('-d', type=check_dir, help='directory where repos are checkout', required=True, metavar='/path/to/repo_dir')
 
-process_repos( args )
-print( get_local_repo_dir( args ) )
+    args = parser.parse_args()
+    print(args)
 
-copy( args )
-print( gCompDstDirDic )
+    process_repos( args )
+    print( get_local_repo_dir( args ) )
 
-"""
-update_repos()
+    copy( args )
+    print( gCompDstDirDic )
 
-copy_lib();
+    compile_all( args )
 
-copy_modules();
-
-
-UAT deployment steps
-
-- update repo folders
-- rename repo folders to today
-
-- if lib is there copy to library_folder
-- compile & install lib
-- relink to new lib folder
-
-- copy the components to Broker folder
-- compile all components
-- stop components
-- relink components
-- start components
-
-deploy -l libubac libkimeng -ld /path/to/libdir -md /path/to/moduledir -d /path/to/checkoutdir login trade reports 
-
-
-master: latest changes
-dev: current developing changes
-uat:
-
-"""
+    relink()
