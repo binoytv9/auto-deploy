@@ -106,21 +106,37 @@ def compile_lib( libs ):
 def compile_mod( modules ):
     processes=[]
     for module in modules:
-        processes.append( subprocess.Popen( ['make', '-j2', '-C', gCompDstDirDic[module], 'clean', 'all'] ) )
+	dirname = gCompDstDirDic[module]
+        subprocess.run( ['make', '-C', dirname, 'clean'] )
+        processes.append( subprocess.Popen( ['make', '-j2', '-C', dirname] ) )
 
     for process in processes:
         process.wait()
 
-def relink():
-    for comp, dirname in gCompDstDirDic.items():
-        subprocess.run( ['monit', 'stop', comp] )
-        time.sleep(1)
-        subprocess.run( ['unlink', comp], cwd=os.path.dirname(dirname) )
-        subprocess.run( ['ln', '-s', os.path.basename(dirname), comp], cwd=os.path.dirname(dirname) )
-        subprocess.run( ['monit', 'start', comp] )
+def relink_all( args ):
+    relink_lib( args.l )
+    relink_mod( args.m )
+
+def relink_lib( libs ):
+    if libs == None:
+        return
+
+    for lib in libs:
+    	dirname = gCompDstDirDic[lib]
+    	subprocess.run( ['unlink', lib], cwd=os.path.dirname(dirname) )
+    	subprocess.run( ['ln', '-s', os.path.basename(dirname), lib], cwd=os.path.dirname(dirname) )
+
+def relink_mod( modules ):
+    for module in modules:
+	dirname = gCompDstDirDic[ module ]
+	subprocess.run( ['monit', 'stop', module] )
+	time.sleep(1)
+	subprocess.run( ['unlink', module], cwd=os.path.dirname(dirname) )
+	subprocess.run( ['ln', '-s', os.path.basename(dirname), module], cwd=os.path.dirname(dirname) )
+	subprocess.run( ['monit', 'start', module] )
 
 gCompDstDirDic={}
-lib_list = ['libubac', 'libkimeng']
+lib_list = ['libkimeng']
 module_list = ['init', 'weblogin', 'login', 'market-data', 'market-movers', 'market-insight', 'portfolio', 'reports', 'trade', 'watchlist']
 
 if __name__ == '__main__':
@@ -147,4 +163,4 @@ if __name__ == '__main__':
 
     compile_all( args )
 
-    relink()
+    relink_all( args )
