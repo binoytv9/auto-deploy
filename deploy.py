@@ -14,7 +14,7 @@ Deployment steps
 - relink modules
 - start modules
 
-deploy -l libubac libkimeng -ld /path/to/libdir -md /path/to/moduledir -d /path/to/checkoutdir login trade reports 
+python3.6 deploy.py -l lib1 lib2 -ld /path/to/libdir -md /path/to/moduledir -d /path/to/checkoutdir mod1 mod2
 
 """
 
@@ -106,7 +106,7 @@ def compile_lib( libs ):
 def compile_mod( modules ):
     processes=[]
     for module in modules:
-	dirname = gCompDstDirDic[module]
+        dirname = gCompDstDirDic[module]
         subprocess.run( ['make', '-C', dirname, 'clean'] )
         processes.append( subprocess.Popen( ['make', '-j2', '-C', dirname] ) )
 
@@ -122,18 +122,18 @@ def relink_lib( libs ):
         return
 
     for lib in libs:
-    	dirname = gCompDstDirDic[lib]
-    	subprocess.run( ['unlink', lib], cwd=os.path.dirname(dirname) )
-    	subprocess.run( ['ln', '-s', os.path.basename(dirname), lib], cwd=os.path.dirname(dirname) )
+        dirname = gCompDstDirDic[lib]
+        subprocess.run( ['unlink', lib], cwd=os.path.dirname(dirname) )
+        subprocess.run( ['ln', '-s', os.path.basename(dirname), lib], cwd=os.path.dirname(dirname) )
 
 def relink_mod( modules ):
     for module in modules:
-	dirname = gCompDstDirDic[ module ]
-	subprocess.run( ['monit', 'stop', module] )
-	time.sleep(1)
-	subprocess.run( ['unlink', module], cwd=os.path.dirname(dirname) )
-	subprocess.run( ['ln', '-s', os.path.basename(dirname), module], cwd=os.path.dirname(dirname) )
-	subprocess.run( ['monit', 'start', module] )
+        dirname = gCompDstDirDic[ module ]
+        subprocess.run( ['monit', '-c', '/home/mkeadmin/etc/monit/monitrc', 'stop', module] )
+        time.sleep(1)
+        subprocess.run( ['unlink', module], cwd=os.path.dirname(dirname) )
+        subprocess.run( ['ln', '-s', os.path.basename(dirname), module], cwd=os.path.dirname(dirname) )
+        subprocess.run( ['monit', '-c', '/home/mkeadmin/etc/monit/monitrc', , 'start', module] )
 
 gCompDstDirDic={}
 lib_list = ['libkimeng']
