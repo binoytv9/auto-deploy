@@ -50,10 +50,8 @@ def process_repos( args ):
                 break
 
 def update( dirname ):
-    cmd = ['git', '-C', 'pull', 'origin', 'master']
+    cmd = ['git', '-C', 'pull', 'origin', 'develop']
     cmd.insert( 2, dirname )
-    if subprocess.run( cmd ).returncode != 0:
-        sys.exit(1)
 
 def copy( args ):
     repos = get_local_repo_dir( args )
@@ -133,7 +131,7 @@ def relink_mod( modules ):
         time.sleep(1)
         subprocess.run( ['unlink', module], cwd=os.path.dirname(dirname) )
         subprocess.run( ['ln', '-s', os.path.basename(dirname), module], cwd=os.path.dirname(dirname) )
-        subprocess.run( ['monit', '-c', '/home/mkeadmin/etc/monit/monitrc', , 'start', module] )
+        subprocess.run( ['monit', '-c', '/home/mkeadmin/etc/monit/monitrc', 'start', module] )
 
 gCompDstDirDic={}
 lib_list = ['libkimeng']
